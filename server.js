@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const fetch = require("node-fetch"); // IMPORTANT
+const http = require("http");
+const https = require("https");
 const connectDB = require("./config/db");
 const seedServicesIfEmpty = require("./utils/seedServices");
 
@@ -33,8 +34,28 @@ function getSelfPingUrl() {
     return `${process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "")}/api/health`;
   }
 
-  console.warn("⚠️ No public URL found for self-ping");
+  if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+    return `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/api/health`;
+  }
+
+  console.warn("No public URL found for self-ping");
   return null;
+}
+
+function pingUrl(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https://") ? https : http;
+    const req = client.get(url, (res) => {
+      const statusCode = res.statusCode || 0;
+      res.resume();
+      resolve(statusCode);
+    });
+
+    req.on("error", reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error("Self-ping timeout"));
+    });
+  });
 }
 
 function startSelfPing() {
@@ -43,17 +64,17 @@ function startSelfPing() {
     return;
   }
 
-  const pingUrl = getSelfPingUrl();
-  if (!pingUrl) return;
+  const targetUrl = getSelfPingUrl();
+  if (!targetUrl) return;
 
-  console.log(`🔁 Self-ping enabled → ${pingUrl}`);
+  console.log(`Self-ping enabled -> ${targetUrl}`);
 
   setInterval(async () => {
     try {
-      const res = await fetch(pingUrl);
-      console.log(`✅ Self-ping success (${res.status})`);
+      const statusCode = await pingUrl(targetUrl);
+      console.log(`Self-ping success (${statusCode})`);
     } catch (error) {
-      console.error("❌ Self-ping failed:", error.message);
+      console.error("Self-ping failed:", error.message);
     }
   }, 10 * 60 * 1000);
 }
@@ -63,7 +84,7 @@ async function startServer() {
   await seedServicesIfEmpty();
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
     startSelfPing();
   });
 }
