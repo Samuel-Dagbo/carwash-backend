@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const fetch = require("node-fetch"); // IMPORTANT
 const connectDB = require("./config/db");
 const seedServicesIfEmpty = require("./utils/seedServices");
 
@@ -20,29 +21,39 @@ app.use("/api/services", require("./routes/serviceRoute"));
 app.use("/api/bookings", require("./routes/bookingRoute"));
 
 const PORT = process.env.PORT || 5000;
-const SELF_PING_ENABLED = String(process.env.SELF_PING_ENABLED || "false").toLowerCase() === "true";
+const SELF_PING_ENABLED =
+  String(process.env.SELF_PING_ENABLED || "false").toLowerCase() === "true";
 
-function getSelfPingUrl(port) {
+function getSelfPingUrl() {
   if (process.env.PUBLIC_BASE_URL) {
     return `${process.env.PUBLIC_BASE_URL.replace(/\/$/, "")}/api/health`;
   }
+
   if (process.env.RENDER_EXTERNAL_URL) {
     return `${process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "")}/api/health`;
   }
-  if (process.env.RENDER_EXTERNAL_HOSTNAME) {
-    return `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/api/health`;
-  }
-  return `http://127.0.0.1:${port}/api/health`;
+
+  console.warn("⚠️ No public URL found for self-ping");
+  return null;
 }
 
-function startSelfPing(port) {
-  if (!SELF_PING_ENABLED) return;
-  const pingUrl = getSelfPingUrl(port);
+function startSelfPing() {
+  if (!SELF_PING_ENABLED) {
+    console.log("Self-ping disabled");
+    return;
+  }
+
+  const pingUrl = getSelfPingUrl();
+  if (!pingUrl) return;
+
+  console.log(`🔁 Self-ping enabled → ${pingUrl}`);
+
   setInterval(async () => {
     try {
-      await fetch(pingUrl);
+      const res = await fetch(pingUrl);
+      console.log(`✅ Self-ping success (${res.status})`);
     } catch (error) {
-      console.error("Self-ping failed:", error.message);
+      console.error("❌ Self-ping failed:", error.message);
     }
   }, 10 * 60 * 1000);
 }
@@ -50,9 +61,10 @@ function startSelfPing(port) {
 async function startServer() {
   await connectDB();
   await seedServicesIfEmpty();
+
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    startSelfPing(PORT);
+    console.log(`🚀 Server running on port ${PORT}`);
+    startSelfPing();
   });
 }
 
