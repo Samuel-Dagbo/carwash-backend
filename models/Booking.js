@@ -12,10 +12,25 @@ const bookingSchema = new mongoose.Schema({
   time: { type: String, required: true },
   status: {
     type: String,
-    enum: ["Pending", "Approved", "In Progress", "Completed", "Rejected"],
+    enum: ["Pending", "Approved", "In Progress", "Completed", "Rejected", "Cancelled"],
     default: "Pending",
   },
   totalAmount: { type: Number, min: 0 },
+  // New fields
+  vehicleMake: { type: String, trim: true },
+  vehicleModel: { type: String, trim: true },
+  vehiclePlate: { type: String, trim: true },
+  notes: { type: String, trim: true },
+  // Cancellation tracking
+  cancelledAt: { type: Date },
+  cancelledBy: { type: String, enum: ["customer", "admin", null], default: null },
+  cancellationReason: { type: String, trim: true },
+  // Reschedule tracking
+  originalDate: { type: Date },
+  originalTime: { type: String },
+  rescheduledAt: { type: Date },
+  // Admin notes
+  adminNotes: { type: String, trim: true },
 }, { timestamps: true });
 
 bookingSchema.pre("validate", function populateBookingReference() {

@@ -5,6 +5,7 @@ const http = require("http");
 const https = require("https");
 const connectDB = require("./config/db");
 const seedServicesIfEmpty = require("./utils/seedServices");
+const seedAdminIfEmpty = require("./utils/seedAdmin");
 
 dotenv.config();
 
@@ -82,6 +83,7 @@ function startSelfPing() {
 async function startServer() {
   await connectDB();
   await seedServicesIfEmpty();
+  await seedAdminIfEmpty();
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
